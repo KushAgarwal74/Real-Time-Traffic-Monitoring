@@ -216,3 +216,26 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# ==========================================
+# Real-Time Traffic Monitoring (YOLO Custom Exclusions)
+# ==========================================
+# Ignore large pre-trained model files and customized weights
+*.pt
+*.onnx
+*.engine
+*.tflite
+*.weights
+
+# Ignore heavy testing media and input source videos
+*.mp4
+*.avi
+*.mkv
+*.mov
+producers/test_data/
+producers/videos/
+
+# Ignore local pipeline logs and output detections
+runs/
+detect/
