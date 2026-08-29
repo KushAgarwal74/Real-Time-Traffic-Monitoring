@@ -1,0 +1,3 @@
+confluent-kafka     # To consume and process the data stream
+pydantic            # To validate traffic log schemas
+python-dotenv
