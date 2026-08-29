@@ -1,0 +1,3 @@
+ultralytics         # For loading and running YOLOv8 / YOLOv11
+opencv-python-headless # For frame parsing without needing a GUI on servers
+confluent-kafka     # To send detection data to Kafka
