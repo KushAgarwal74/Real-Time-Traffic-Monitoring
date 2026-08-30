@@ -1,6 +1,7 @@
 import json
 import time
 import sys
+import random
 from confluent_kafka import Producer
 
 def delivery_report(err, msg):
@@ -28,11 +29,18 @@ def run_yolo_producer():
                 "timestamp": time.time(),
                 "camera_location": "intersection_north_highway",
                 "detections": {
-                    "car": 8,
-                    "truck": 2,
-                    "bus": 1,
-                    "motorcycle": 4
+                    "car": random.randint(0, 10),
+                    "truck": random.randint(0, 5),
+                    "bus": random.randint(0, 5),
+                    "motorcycle": random.randint(0, 15),
                 }
+
+                # "detections": {
+                #     "car": 8,
+                #     "truck": 2,
+                #     "bus": 1,
+                #     "motorcycle": 4
+                # }
             }
             
             # Send message data to the queue
@@ -46,7 +54,8 @@ def run_yolo_producer():
             producer.poll(0)
             
             # Simulate processing speed delay (2 frames per second)
-            time.sleep(0.5)
+            # changed to 1 frame per second to match the consumer's polling rate
+            time.sleep(1.0)
             
     except KeyboardInterrupt:
         print("\n[*] Stopping producer feed gracefully...")
