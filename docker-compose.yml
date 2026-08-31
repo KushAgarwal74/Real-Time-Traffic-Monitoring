@@ -24,6 +24,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -35,3 +36,18 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb-local
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: traffic_db
+      POSTGRES_USER: traffic_user
+      POSTGRES_PASSWORD: traffic_password
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+
+volumes:
+  timescaledb_data:

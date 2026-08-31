@@ -1,7 +1,17 @@
 import json
-import time
 import sys
+import time
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from confluent_kafka import Producer
+
+from config.kafka_config import ensure_kafka_topic
+from config.settings import KAFKA_BOOTSTRAP_SERVERS, KAFKA_RAW_TOPIC
+
 
 def delivery_report(err, msg):
     if err is not None:
@@ -10,11 +20,13 @@ def delivery_report(err, msg):
         print(f"[+] YOLO Frame data sent to topic: {msg.topic()} [Partition: {msg.partition()}]")
 
 def run_yolo_producer():
+    ensure_kafka_topic(KAFKA_RAW_TOPIC, KAFKA_BOOTSTRAP_SERVERS)
+
     # Configure producer to talk to local cluster via mapped localhost port
-    conf = {'bootstrap.servers': 'localhost:9092'}
+    conf = {'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS}
     producer = Producer(conf)
-    topic_name = 'traffic-raw-data'
-    
+    topic_name = KAFKA_RAW_TOPIC
+
     print("[*] Starting mock YOLO camera stream... Press Ctrl+C to terminate.")
     
     frame_count = 0

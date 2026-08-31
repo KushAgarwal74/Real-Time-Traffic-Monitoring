@@ -83,29 +83,138 @@ During live communication testing, the pipeline passed continuous metadata excha
 
 ---
 
-## 🚀 Teammate Onboarding & Local Setup
+## 🚀 Local setup and end-to-end run
 
-### 1. Provision Cluster Components
-Ensure **Docker Desktop** is active on your host system, open your terminal at the project root directory, and type:
+### 1. Prerequisites
+Make sure you have:
+- Docker Desktop or Docker Engine running locally
+- Python 3.11+ (this project was validated with Python 3.13)
+- Access to the project root folder
+
+### 2. Start the infrastructure services
+From the project root:
 ```bash
 docker compose up -d
 ```
-*   **Web Dashboard UI Manager:** [http://localhost:8080](http://localhost:8080)
-*   **Kafka Cluster Bootstrap URL:** `localhost:9092`
 
-### 2. Configure Your Isolated Python Workspace
+This starts:
+- Kafka at `localhost:9092`
+- ZooKeeper at `localhost:2181`
+- Kafka UI at `http://localhost:8080`
+- TimescaleDB at `localhost:5432`
+
+### 3. Create and activate a Python virtual environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 4. Install the project dependencies
+```bash
+pip install --upgrade pip
+pip install -r producers/requirements.txt
+pip install -r streams_app/requirements.txt
+```
+
+If you are working directly with the DB and Kafka config, also install the runtime dependencies used by the app environment, including the Kafka client and psycopg packages:
+```bash
+pip install confluent-kafka "psycopg[binary]>=3.3.4"
+```
+
+### 5. Configure local environment values
+Copy the example environment file and keep the values aligned with the local Docker stack:
+```bash
+cp .env.example .env
+```
+
+The current `.env.example` includes:
+```env
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+KAFKA_RAW_TOPIC=traffic-raw-data
+KAFKA_CONSUMER_GROUP=traffic-monitoring-analytics-group
+
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=traffic_db
+POSTGRES_USER=traffic_user
+POSTGRES_PASSWORD=traffic_password
+
+DATABASE_URL=postgresql://traffic_user:traffic_password@localhost:5432/traffic_db
+```
+
+### 6. Verify database connectivity
+Use the TimescaleDB container to confirm the database is accepting connections:
+```bash
+docker exec -it timescaledb-local psql -U traffic_user -d traffic_db -c "SELECT current_database(), current_user;"
+```
+
+You should see the database and user names returned successfully.
+
+To inspect the database tables:
+```bash
+docker exec -it timescaledb-local psql -U traffic_user -d traffic_db -c "\dt"
+```
+
+The expected tables include:
+- `traffic_event`
+- `traffic_summary`
+
+### 7. Run the app end to end
+Start the consumer in one terminal:
 ```bash
 source .venv/bin/activate
-pip install -r producers/requirements.txt
+./.venv/bin/python consumers/dashboard_sink.py
+```
+
+This consumer will:
+- ensure the Kafka topic exists
+- initialize the database schema if needed
+- wait for raw traffic events from Kafka
+- insert them into `traffic_event`
+- update the minute summary table
+
+In a second terminal, run the producer:
+```bash
+source .venv/bin/activate
+./.venv/bin/python producers/mock_producer.py
+```
+
+The producer sends mock camera data into the `traffic-raw-data` Kafka topic. The DB sink consumes that stream and writes the results into TimescaleDB.
+
+### 8. Verify the pipeline is working
+Check the consumer terminal for output like:
+```text
+[DB Sink] saved frame 1 from intersection_north_highway | total=15 | breakdown={'car': 8, 'truck': 2, 'bus': 1, 'motorcycle': 4}
+```
+
+Check the database directly:
+```bash
+docker exec -it timescaledb-local psql -U traffic_user -d traffic_db -c "SELECT count(*) FROM traffic_event;"
+```
+
+You can also inspect the summary table:
+```bash
+docker exec -it timescaledb-local psql -U traffic_user -d traffic_db -c "SELECT * FROM traffic_summary ORDER BY bucket_start DESC LIMIT 10;"
+```
+
+### 9. Stop the pipeline cleanly
+```bash
+Ctrl+C
+```
+If needed, stop the infrastructure stack:
+```bash
+docker compose down
 ```
 
 ---
 
-## 🎯 Shared Group Commit Protocol & Roles
-*   **Branch Isolation Rules:** Do not push updates directly to `main` or `master`. Always perform atomic checkouts (`git checkout -b feature/your-task`) and open an explicit Pull Request for evaluation.
-*   **Storage Boundaries:** Because your `.gitignore` explicitly filters out `*.pt`, `*.onnx`, and binary text `*.mp4` assets, model data will remain safely outside GitHub system thresholds.
+## 🎯 Project flow summary
+The project is designed as:
 
-### Project Folders Ownership Matrix
-*   **Teammates 1 & 2 (Computer Vision):** Manage `producers/` configurations to run live YOLO classification routines inside `mock_producer.py`.
-*   **Teammates 3 & 4 (Analytics Framework):** Code windowed stream aggregation scripts in `streams_app/processors.py` and `aggregators.py`.
-*   **Teammate 5 (Storage Core):** Connect `consumers/dashboard_sink.py` to target data collection engines or live dashboard platforms.
+1. Producer emits traffic detections to Kafka
+2. Kafka broker handles the event stream
+3. Consumer writes raw frames to TimescaleDB
+4. Summary logic aggregates traffic by minute and classifies congestion
+5. Dashboard or alerting queries can consume the summary data
+
+This is the verified local pattern used in the current repo setup.
