@@ -1,43 +1,71 @@
 # Real-Time Traffic Monitoring System (YOLO + Apache Kafka)
 
-Real-Time-Traffic-Monitoring/
-│
-├── cv_pipeline/
-│   ├── traffic_pipeline.py
-│   ├── traffic_tracker.py
-│   ├── vehicle_plate_pipeline.py
-│   ├── license_plate_detector.py
-│   ├── license_plate_ocr.py
-│   ├── plate_validator.py
-│   ├── plate_ocr_validator.py
-│   ├── plate_ocr_aggregator.py
-│   └── vehicle_state_manager.py
-│
-├── producers/
-│   ├── run_traffic_video.py
-│   ├── video_runner.py
-│   └── kafka_producer.py
-│
-├── consumers/
-│   └── kafka_consumer.py
-│
-├── kafka/
-│   ├── docker-compose.yml
-│   └── init.sql
-│
-├── data/
-│   ├── raw/
-│   └── processed/
-│
-├── models/
-│
-├── outputs/
-│   └── videos/
-│
-├── requirements.txt
-├── .gitignore
-└── README.md
+# 🚦 Real-Time Traffic Monitoring System
 
+An end-to-end **real-time traffic monitoring system** built using Computer Vision, Apache Kafka, and TimescaleDB.
+
+The system detects and tracks vehicles from traffic video streams, detects license plates, performs OCR, generates traffic events, streams them through Kafka, and stores them in TimescaleDB for downstream analytics and dashboard visualization.
+
+---
+
+# 🏗️ System Architecture
+
+```text
+                    ┌─────────────────────┐
+                    │   Traffic Video     │
+                    │    / Camera Feed    │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │   Video Runner      │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │  Traffic Pipeline   │
+                    └──────────┬──────────┘
+                               │
+            ┌──────────────────┼──────────────────┐
+            │                  │                  │
+            ▼                  ▼                  ▼
+     Vehicle Detection     Tracking        License Plate
+        + Tracking                         Detection + OCR
+            │                  │                  │
+            └──────────────────┼──────────────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │   Traffic Events    │
+                    │                     │
+                    │ vehicle_detected    │
+                    │ vehicle_updated     │
+                    │ vehicle_exited      │
+                    └──────────┬──────────┘
+                               │
+                 ┌─────────────┴─────────────┐
+                 │                           │
+                 ▼                           ▼
+        ┌─────────────────┐         ┌─────────────────┐
+        │   events.jsonl  │         │      Kafka      │
+        │  Backup / Replay│         │  traffic-events │
+        └─────────────────┘         └────────┬────────┘
+                                             │
+                                             ▼
+                                    ┌─────────────────┐
+                                    │ Kafka Consumer  │
+                                    └────────┬────────┘
+                                             │
+                                             ▼
+                                    ┌─────────────────┐
+                                    │   TimescaleDB   │
+                                    └────────┬────────┘
+                                             │
+                                             ▼
+                                    ┌─────────────────┐
+                                    │    Dashboard    │
+                                    │   (Planned)     │
+                                    └─────────────────┘
 
 A distributed, real-time data streaming pipeline that processes video frames using computer vision (YOLO) and orchestrates telemetry payloads using Apache Kafka stream processing topologies.
 
