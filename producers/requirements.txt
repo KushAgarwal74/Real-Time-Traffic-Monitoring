@@ -1,5 +1,17 @@
-ultralytics         # For loading and running YOLOv8 / YOLOv11
-opencv-python-headless # For frame parsing without needing a GUI on servers
-confluent-kafka     # To send detection data to Kafka
-ffmpeg-python 
+# YOLO / Object Detection
+ultralytics
+
+# Video Processing
+opencv-python-headless
+ffmpeg-python
+
+# OCR
+easyocr
+
+# Kafka
+confluent-kafka
+
+# Utilities
 python-dateutil
+
+psycopg2-binary

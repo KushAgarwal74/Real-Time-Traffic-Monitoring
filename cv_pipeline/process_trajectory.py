@@ -1,7 +1,7 @@
 import cv2
 from pathlib import Path
 
-from cv_pipeline.tracker import TrafficTracker
+from cv_pipeline.traffic_tracker import TrafficTracker
 from cv_pipeline.trajectory import TrajectoryAnalyzer
 
 

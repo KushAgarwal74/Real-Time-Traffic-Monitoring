@@ -3,10 +3,13 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from cv_pipeline.tracker import TrafficTracker
-from cv_pipeline.trajectory import TrajectoryAnalyzer
-from cv_pipeline.vehicle_state import VehicleStateManager
+from cv_pipeline.traffic_tracker import TrafficTracker
+# from cv_pipeline.trajectory import TrajectoryAnalyzer
+from cv_pipeline.vehicle_state_manager import VehicleStateManager
 
+from cv_pipeline.vehicle_plate_pipeline import (
+    VehiclePlatePipeline
+)
 from gps.video_gps_sync import VideoGPSSynchronizer
 
 from events.event_store import EventStore
@@ -20,15 +23,27 @@ GPX_FILE = Path(
     "data/raw/gps/traffic_1.gpx"
 )
 
-OUTPUT_DIR = Path(
-    "data/processed/traffic_1"
-)
+# OUTPUT_DIR = Path(
+#     "data/processed/traffic_1"
+# )
 
-OUTPUT_VIDEO = Path(
-    "outputs/videos/traffic_1_processed.mp4"
-)
+# OUTPUT_VIDEO = Path(
+#     "outputs/videos/traffic_1_processed.mp4"
+# )
 
-def process_video():
+def process_video(plate_model_path="models/license-plate-finetune-v1s.pt", model_name="v1s"):
+
+    # ----------------------------------------
+    # Model-specific output directories
+    # ----------------------------------------
+
+    OUTPUT_DIR = Path(
+        "data/processed/traffic_1"
+    ) / model_name
+
+    OUTPUT_VIDEO = Path(
+        "outputs/videos"
+    ) / f"traffic_1_{model_name}.mp4"
 
     # ----------------------------------------
     # Create components
@@ -36,12 +51,14 @@ def process_video():
 
     tracker = TrafficTracker()
 
-    trajectory_analyzer = TrajectoryAnalyzer()
+    # trajectory_analyzer = TrajectoryAnalyzer()
 
     vehicle_manager = VehicleStateManager(
         exit_after_frames=90,
         update_interval_frames=30
     )
+
+    vehicle_plate_pipeline = VehiclePlatePipeline(model_path=plate_model_path)
 
     # ----------------------------------------
     # Video
@@ -186,6 +203,31 @@ def process_video():
         )
 
         # ------------------------------------
+        # LICENSE PLATE DETECTION
+        # ------------------------------------
+
+        plates_by_track = (
+            vehicle_plate_pipeline.process_frame(
+                frame,
+                tracked_objects
+            )
+        )
+
+
+        # ------------------------------------
+        # Attach plate information
+        # to tracked vehicles
+        # ------------------------------------
+
+        for vehicle in tracked_objects:
+
+            track_id = vehicle["track_id"]
+
+            vehicle["license_plate"] = (
+                plates_by_track.get(track_id)
+            )
+
+        # ------------------------------------
         # GPS
         # ------------------------------------
 
@@ -218,9 +260,9 @@ def process_video():
         # Update trajectories
         # ------------------------------------
 
-        trajectory_analyzer.update(
-            tracked_objects
-        )
+        # trajectory_analyzer.update(
+        #     tracked_objects
+        # )
 
         # ------------------------------------
         # Vehicle lifecycle events
@@ -266,6 +308,52 @@ def process_video():
         # ------------------------------------
         # Draw objects
         # ------------------------------------
+
+        # ------------------------------------
+        # Draw license plates
+        # ------------------------------------
+
+        for track_id, plate in plates_by_track.items():
+
+            x1, y1, x2, y2 = plate["bbox"]
+
+            confidence = plate["confidence"]
+
+            label = (
+                f"PLATE "
+                f"ID:{track_id} "
+                f"{confidence:.2f}"
+            )
+
+            cv2.rectangle(
+
+                frame,
+
+                (x1, y1),
+
+                (x2, y2),
+
+                (0, 0, 255),
+
+                2
+            )
+
+            cv2.putText(
+
+                frame,
+
+                label,
+
+                (x1, max(20, y1 - 10)),
+
+                cv2.FONT_HERSHEY_SIMPLEX,
+
+                0.5,
+
+                (0, 0, 255),
+
+                2
+            )
 
         for obj in tracked_objects:
 
@@ -315,9 +403,9 @@ def process_video():
             # ------------------------------
 
             trajectory = (
-                trajectory_analyzer.get_trajectory(
-                    track_id
-                )
+                # trajectory_analyzer.get_trajectory(
+                #     track_id
+                # )
             )
 
             if len(trajectory) > 1:
@@ -425,6 +513,10 @@ def process_video():
 
         "video": str(INPUT_VIDEO),
 
+        "license_plate_model": model_name,
+
+        "license_plate_model_path": plate_model_path,
+
         "total_frames": frame_total,
 
         "fps": fps,
@@ -501,4 +593,32 @@ def process_video():
 
 if __name__ == "__main__":
 
-    process_video()
+    models = [
+
+        # ("v1s", "models/license-plate-finetune-v1s.pt"),
+        ("v1m", "models/license-plate-finetune-v1m.pt"),
+        ("v1l", "models/license-plate-finetune-v1l.pt"),
+        ("v1x", "models/license-plate-finetune-v1x.pt")
+    ]
+
+    for model_name, model_path in models:
+
+        print("\n" + "=" * 60)
+
+        print(
+            f"RUNNING MODEL: {model_name}"
+        )
+
+        print(
+            f"MODEL PATH: {model_path}"
+        )
+
+        print("=" * 60)
+
+
+        process_video(
+
+            plate_model_path=model_path,
+
+            model_name=model_name
+        )

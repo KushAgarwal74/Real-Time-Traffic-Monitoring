@@ -1,5 +1,44 @@
 # Real-Time Traffic Monitoring System (YOLO + Apache Kafka)
 
+Real-Time-Traffic-Monitoring/
+│
+├── cv_pipeline/
+│   ├── traffic_pipeline.py
+│   ├── traffic_tracker.py
+│   ├── vehicle_plate_pipeline.py
+│   ├── license_plate_detector.py
+│   ├── license_plate_ocr.py
+│   ├── plate_validator.py
+│   ├── plate_ocr_validator.py
+│   ├── plate_ocr_aggregator.py
+│   └── vehicle_state_manager.py
+│
+├── producers/
+│   ├── run_traffic_video.py
+│   ├── video_runner.py
+│   └── kafka_producer.py
+│
+├── consumers/
+│   └── kafka_consumer.py
+│
+├── kafka/
+│   ├── docker-compose.yml
+│   └── init.sql
+│
+├── data/
+│   ├── raw/
+│   └── processed/
+│
+├── models/
+│
+├── outputs/
+│   └── videos/
+│
+├── requirements.txt
+├── .gitignore
+└── README.md
+
+
 A distributed, real-time data streaming pipeline that processes video frames using computer vision (YOLO) and orchestrates telemetry payloads using Apache Kafka stream processing topologies.
 
   [ Video / Camera Stream ] 

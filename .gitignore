@@ -222,7 +222,7 @@ __marimo__/
 # Real-Time Traffic Monitoring (YOLO Custom Exclusions)
 # ==========================================
 # Ignore large pre-trained model files and customized weights
-*.pt
+# *.pt
 *.onnx
 *.engine
 *.tflite
