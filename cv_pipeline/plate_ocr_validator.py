@@ -44,7 +44,6 @@ class PlateOCRValidator:
         """
 
         if not text:
-
             return ""
 
         text = text.upper()
@@ -73,9 +72,7 @@ class PlateOCRValidator:
         }
         """
 
-        normalized_text = self.normalize(
-            text
-        )
+        normalized_text = self.normalize(text)
 
         # ----------------------------------
         # Empty result
@@ -84,11 +81,8 @@ class PlateOCRValidator:
         if not normalized_text:
 
             return {
-
                 "text": "",
-
                 "is_valid": False,
-
                 "format_score": 0.0
             }
 
@@ -99,16 +93,11 @@ class PlateOCRValidator:
 
         for pattern in self.patterns:
 
-            if pattern.match(
-                normalized_text
-            ):
+            if pattern.match(normalized_text):
 
                 return {
-
                     "text": normalized_text,
-
                     "is_valid": True,
-
                     "format_score": 1.0
                 }
 
@@ -119,9 +108,7 @@ class PlateOCRValidator:
 
         score = 0.0
 
-        length = len(
-            normalized_text
-        )
+        length = len(normalized_text)
 
         # Indian plates are generally
         # around 8–12 characters
@@ -185,12 +172,145 @@ class PlateOCRValidator:
 
 
         return {
-
             "text": normalized_text,
-
             "is_valid": False,
-
-            "format_score": float(
-                score
-            )
+            "format_score": float(score)
         }
+
+
+    def is_usable(
+        self,
+        ocr_result,
+        validation_result
+    ):
+
+        """
+        Decide whether an OCR observation is
+        good enough to enter temporal aggregation.
+
+        This is intentionally separate from
+        validate().
+
+        validate()
+            -> plate format quality
+
+        is_usable()
+            -> OCR observation quality
+        """
+
+        if not ocr_result:
+            return False
+
+        if not validation_result:
+            return False
+
+
+        text = validation_result.get(
+            "text",
+            ""
+        )
+
+        if not text:
+            return False
+
+
+        # ----------------------------------
+        # Basic length filter
+        # ----------------------------------
+
+        # Single characters such as:
+        #
+        # U
+        # 6
+        # 7
+        # C
+        #
+        # are almost certainly OCR failures.
+
+        if len(text) < 4:
+            return False
+
+
+        # ----------------------------------
+        # OCR confidence
+        # ----------------------------------
+
+        ocr_confidence = float(
+            ocr_result.get(
+                "confidence",
+                0.0
+            )
+        )
+
+        # Extremely low-confidence OCR should
+        # not pollute temporal aggregation.
+
+        if ocr_confidence < 0.10:
+            return False
+
+
+        # ----------------------------------
+        # Format score
+        # ----------------------------------
+
+        format_score = float(
+            validation_result.get(
+                "format_score",
+                0.0
+            )
+        )
+
+
+        # ----------------------------------
+        # Strong valid plate
+        # ----------------------------------
+
+        if validation_result.get(
+            "is_valid",
+            False
+        ):
+
+            return True
+
+
+        # ----------------------------------
+        # Partial plate
+        # ----------------------------------
+
+        # For an incomplete/noisy reading we
+        # require stronger evidence.
+
+        if format_score < 0.40:
+            return False
+
+
+        # ----------------------------------
+        # Character composition
+        # ----------------------------------
+
+        has_letters = any(
+            char.isalpha()
+            for char in text
+        )
+
+        has_digits = any(
+            char.isdigit()
+            for char in text
+        )
+
+        # A useful plate observation should
+        # normally contain both letters and digits.
+
+        if not has_letters or not has_digits:
+            return False
+
+
+        # ----------------------------------
+        # Minimum length for partial reading
+        # ----------------------------------
+
+        if len(text) < 6:
+            return False
+
+
+        return True

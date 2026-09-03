@@ -195,6 +195,8 @@ class VehiclePlatePipeline:
 
         ocr_validation = None
 
+        ocr_usable = False
+
         if plate_crop is not None and plate_crop.size > 0:
 
             ocr_result = self.plate_ocr.read_plate(
@@ -209,31 +211,42 @@ class VehiclePlatePipeline:
 
                 ocr_validation = (
                     self.ocr_validator.validate(
-                        ocr_result.get(
-                            "text"
-                        )
+                        ocr_result.get("text")
                     )
                 )
 
                 # ----------------------------------
-                # Add observation to temporal
-                # aggregator
+                # OCR quality gate
                 # ----------------------------------
 
-                self.ocr_aggregator.add_observation(
-
-                    track_id=vehicle[
-                        "track_id"
-                    ],
-
-                    ocr_result=ocr_result,
-
-                    format_result=ocr_validation,
-
-                    plate_confidence=best_plate[
-                        "confidence"
-                    ]
+                ocr_usable = (
+                    self.ocr_validator.is_usable(
+                        ocr_result=ocr_result,
+                        validation_result=ocr_validation
+                    )
                 )
+
+                # ----------------------------------
+                # Add only usable OCR observations
+                # to temporal aggregator
+                # ----------------------------------
+
+                if ocr_usable:
+
+                    self.ocr_aggregator.add_observation(
+
+                        track_id=vehicle[
+                            "track_id"
+                        ],
+
+                        ocr_result=ocr_result,
+
+                        format_result=ocr_validation,
+
+                        plate_confidence=best_plate[
+                            "confidence"
+                        ]
+                    )
 
         # ----------------------------------
         # Return event-ready plate data
@@ -246,13 +259,9 @@ class VehiclePlatePipeline:
             ),
 
             "bbox": [
-
                 full_x1,
-
                 full_y1,
-
                 full_x2,
-
                 full_y2
             ],
 
@@ -271,6 +280,8 @@ class VehiclePlatePipeline:
             # ----------------------------------
 
             "ocr_validation": ocr_validation,
+
+            "ocr_usable": ocr_usable,
 
             # ----------------------------------
             # Best OCR result accumulated

@@ -7,107 +7,337 @@ from cv_pipeline.traffic_pipeline import (
 )
 
 
+# ==========================================================
+# CONFIGURATION
+# ==========================================================
+
+VIDEO_PATH = "data/raw/city/traffic_1.mp4"
+GPX_PATH = "data/raw/city/traffic_1.gpx"
+
+MAX_FRAMES = 300
+
+PRINT_EVERY = 10
+
+
+# ==========================================================
+# MAIN
+# ==========================================================
+
 def main():
 
-    # ==========================================
-    # LOAD TEST IMAGE
-    # ==========================================
+    # ======================================================
+    # OPEN VIDEO
+    # ======================================================
 
-    image_path = "test_image.jpg"
-
-    frame = cv2.imread(
-        image_path
+    print(
+        f"Opening video: {VIDEO_PATH}"
     )
 
-    if frame is None:
+    cap = cv2.VideoCapture(
+        VIDEO_PATH
+    )
+
+    if not cap.isOpened():
 
         print(
-            f"Could not load image: "
-            f"{image_path}"
+            f"Could not open video: "
+            f"{VIDEO_PATH}"
         )
 
         return
 
+    total_video_frames = int(
+        cap.get(
+            cv2.CAP_PROP_FRAME_COUNT
+        )
+    )
 
-    # ==========================================
+    fps = cap.get(
+        cv2.CAP_PROP_FPS
+    )
+
+    print(
+        f"Video frames: "
+        f"{total_video_frames}"
+    )
+
+    print(
+        f"FPS: "
+        f"{fps:.2f}"
+    )
+
+    print(
+        f"Processing first "
+        f"{MAX_FRAMES} frames..."
+    )
+
+    # ======================================================
     # CREATE PIPELINE
-    # ==========================================
+    # ======================================================
 
-    pipeline = TrafficPipeline()
-
-
-    # ==========================================
-    # PROCESS FRAME
-    # ==========================================
-
-    result = pipeline.process_frame(
-
-        frame=frame,
-
-        frame_number=1,
-
-        timestamp=datetime.now(),
-
-        camera_gps=None
+    pipeline = TrafficPipeline(
+        video_path=VIDEO_PATH,
+        gpx_path=GPX_PATH
     )
 
+    # ======================================================
+    # PROCESS VIDEO
+    # ======================================================
 
-    # ==========================================
-    # PRINT RESULTS
-    # ==========================================
+    frame_number = 0
+
+    all_events = []
+
+    last_result = None
+
+    try:
+
+        while frame_number < MAX_FRAMES:
+
+            ret, frame = cap.read()
+
+            if not ret:
+
+                print(
+                    "\nEnd of video."
+                )
+
+                break
+
+            frame_number += 1
+
+            # --------------------------------------------------
+            # Timestamp
+            # --------------------------------------------------
+
+            timestamp = datetime.now()
+
+            # --------------------------------------------------
+            # Process frame
+            # --------------------------------------------------
+
+            result = pipeline.process_frame(
+                frame=frame,
+                frame_number=frame_number,
+            )
+
+            last_result = result
+
+            # --------------------------------------------------
+            # Store events
+            # --------------------------------------------------
+
+            events = result.get(
+                "events",
+                []
+            )
+
+            if events:
+
+                all_events.extend(
+                    events
+                )
+
+            # --------------------------------------------------
+            # Progress
+            # --------------------------------------------------
+
+            if (
+                frame_number == 1
+                or
+                frame_number % PRINT_EVERY == 0
+            ):
+
+                print(
+                    f"Frame "
+                    f"{frame_number}/"
+                    f"{MAX_FRAMES} "
+                    f"| Vehicles: "
+                    f"{len(result['tracked_objects'])} "
+                    f"| Plates: "
+                    f"{len(result['plates_by_track'])}"
+                )
+
+                # ----------------------------------------------
+                # Print current plate observations
+                # ----------------------------------------------
+
+                for (
+                    track_id,
+                    plate
+                ) in result[
+                    "plates_by_track"
+                ].items():
+
+                    if plate is None:
+                        continue
+
+                    best_ocr = plate.get(
+                        "best_ocr"
+                    )
+
+                    if best_ocr is None:
+                        continue
+
+                    print(
+                        f"  Track {track_id}: "
+                        f"{best_ocr['text']} "
+                        f"| observations="
+                        f"{best_ocr['observations']} "
+                        f"| total="
+                        f"{best_ocr['total_observations']} "
+                        f"| score="
+                        f"{best_ocr['final_score']:.3f}"
+                    )
+
+    finally:
+
+        cap.release()
+
+    # ======================================================
+    # FINAL RESULT
+    # ======================================================
+
+    print()
+    print(
+        "=" * 80
+    )
+
+    print(
+        "MULTI-FRAME TRAFFIC PIPELINE RESULT"
+    )
+
+    print(
+        "=" * 80
+    )
 
     print()
 
     print(
-        "=" * 70
+        f"Frames processed: "
+        f"{frame_number}"
     )
 
     print(
-        "TRAFFIC PIPELINE RESULT"
+        f"Events generated: "
+        f"{len(all_events)}"
     )
 
-    print(
-        "=" * 70
-    )
-
+    # ======================================================
+    # FINAL TRACK STATE
+    # ======================================================
 
     print()
 
     print(
-        "TRACKED OBJECTS"
+        "FINAL TRACK RESULTS"
     )
 
     print(
-        "-" * 70
+        "-" * 80
     )
 
-    for vehicle in result[
-        "tracked_objects"
-    ]:
-
-        print(vehicle)
-
-
-    print()
-
-    print(
-        "PLATES"
-    )
-
-    print(
-        "-" * 70
-    )
-
-    for track_id, plate in result[
-        "plates_by_track"
-    ].items():
+    if (
+        last_result is None
+        or
+        not last_result[
+            "tracked_objects"
+        ]
+    ):
 
         print(
-            f"Track ID: {track_id}"
+            "No tracked vehicles."
         )
 
-        print(plate)
+    else:
 
+        for vehicle in last_result[
+            "tracked_objects"
+        ]:
+
+            track_id = vehicle[
+                "track_id"
+            ]
+
+            plate = vehicle.get(
+                "license_plate"
+            )
+
+            print()
+
+            print(
+                f"Track ID: "
+                f"{track_id}"
+            )
+
+            print(
+                f"Vehicle: "
+                f"{vehicle['class_name']}"
+            )
+
+            if plate is None:
+
+                print(
+                    "Plate: None"
+                )
+
+                continue
+
+            best_ocr = plate.get(
+                "best_ocr"
+            )
+
+            if best_ocr is None:
+
+                print(
+                    "Plate OCR: None"
+                )
+
+                continue
+
+            print(
+                f"Best plate: "
+                f"{best_ocr['text']}"
+            )
+
+            print(
+                f"OCR confidence: "
+                f"{best_ocr['ocr_confidence']:.3f}"
+            )
+
+            print(
+                f"Plate confidence: "
+                f"{best_ocr['plate_confidence']:.3f}"
+            )
+
+            print(
+                f"Format score: "
+                f"{best_ocr['format_score']:.3f}"
+            )
+
+            print(
+                f"Valid: "
+                f"{best_ocr['is_valid']}"
+            )
+
+            print(
+                f"Observations: "
+                f"{best_ocr['observations']}"
+            )
+
+            print(
+                f"Total observations: "
+                f"{best_ocr['total_observations']}"
+            )
+
+            print(
+                f"Final score: "
+                f"{best_ocr['final_score']:.3f}"
+            )
+
+    # ======================================================
+    # EVENTS
+    # ======================================================
 
     print()
 
@@ -116,15 +346,19 @@ def main():
     )
 
     print(
-        "-" * 70
+        "-" * 80
     )
 
-    for event in result[
-        "events"
-    ]:
+    for event in all_events:
 
-        print(event)
+        print(
+            event
+        )
 
+
+# ==========================================================
+# ENTRY POINT
+# ==========================================================
 
 if __name__ == "__main__":
 

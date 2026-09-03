@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 
 from producers.kafka_producer import (
-    TrafficEventProducer
+    TrafficEventProducer, json_serializer
 )
 
 
@@ -163,8 +163,7 @@ class VideoRunner:
         input_path,
         output_path,
         events_path,
-        summary_path,
-        camera_gps=None
+        summary_path
     ):
 
         # ==============================================
@@ -307,18 +306,14 @@ class VideoRunner:
                 # FRAME LOOP
                 # ======================================
 
+                frame_number = 0
+
                 while True:
+
                     success, frame = cap.read()
+
                     if not success:
                         break
-
-                    frame_number += 1
-
-                    # ==================================
-                    # TIMESTAMP
-                    # ==================================
-
-                    timestamp = datetime.now()
 
                     # ==================================
                     # RUN TRAFFIC PIPELINE
@@ -327,11 +322,15 @@ class VideoRunner:
                     result = (
                         self.pipeline.process_frame(
                             frame=frame,
-                            frame_number=frame_number,
-                            timestamp=timestamp,
-                            camera_gps=camera_gps
+                            frame_number=frame_number
                         )
                     )
+
+                    # ==================================
+                    # NEXT FRAME
+                    # ==================================
+
+                    frame_number += 1
 
                     # ==================================
                     # PROCESS EVENTS
@@ -351,7 +350,8 @@ class VideoRunner:
                         # ------------------------------
                         events_file.write(
                             json.dumps(
-                                event
+                                event,
+                                default=json_serializer
                             )
                             +
                             "\n"
@@ -458,7 +458,7 @@ class VideoRunner:
             "total_frames": total_frames,
             "processed_frames": frame_number,
             "events": event_counts,
-            "camera_gps": camera_gps,
+            "gps_enabled": True,
             "completed_at": (
                 datetime.now().isoformat()
             )

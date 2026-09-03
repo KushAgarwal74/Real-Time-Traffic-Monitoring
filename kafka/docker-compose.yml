@@ -76,5 +76,19 @@ services:
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-local
+    depends_on:
+      - timescaledb
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
 volumes:
   timescaledb_data:
+  grafana_data:

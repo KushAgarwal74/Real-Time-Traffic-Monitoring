@@ -1,8 +1,17 @@
 import json
-import time
+from datetime import datetime
 
 from confluent_kafka import Producer
 
+def json_serializer(obj):
+
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+
+    raise TypeError(
+        f"Object of type {type(obj).__name__} "
+        f"is not JSON serializable"
+    )
 
 class TrafficEventProducer:
 
@@ -66,7 +75,7 @@ class TrafficEventProducer:
 
             key=str(track_id),
 
-            value=json.dumps(event),
+            value=json.dumps(event, default=json_serializer),
 
             callback=self.delivery_report
         )
