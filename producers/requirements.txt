@@ -14,4 +14,4 @@ confluent-kafka
 # Utilities
 python-dateutil
 
-psycopg2-binary
+psycopg[binary]==3.3.4 # PostgreSQL adapter for storing streaming events in TimescaleDB
