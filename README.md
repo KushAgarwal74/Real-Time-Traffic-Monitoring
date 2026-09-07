@@ -1,73 +1,61 @@
-🚦 Real-Time Traffic Monitoring System
+# Real-Time Traffic Monitoring System
 
-An end-to-end real-time traffic monitoring and analytics pipeline combining Computer Vision, Apache Kafka, TimescaleDB, GPS telemetry, and Grafana.
+> An end-to-end real-time traffic monitoring and analytics pipeline combining **Computer Vision, Apache Kafka, TimescaleDB, GPS telemetry, and Grafana**.
 
-The system processes traffic video, detects and tracks vehicles using YOLO + ByteTrack, generates structured vehicle lifecycle events, synchronizes events with camera GPS telemetry, streams events through Apache Kafka, persists them in TimescaleDB, and visualizes traffic activity through a Grafana Geomap dashboard.
+The system processes traffic video, detects and tracks vehicles using **YOLO + ByteTrack**, generates structured vehicle lifecycle events, synchronizes events with camera GPS telemetry, streams events through **Apache Kafka**, persists them in **TimescaleDB**, and visualizes traffic activity through a **Grafana Geomap dashboard**.
 
-License-plate detection and OCR are implemented as optional enrichment and are intentionally separated from the core traffic-event pipeline.
+License-plate detection and OCR are implemented as **optional enrichment** and are intentionally separated from the core traffic-event pipeline.
 
-🏷️ Tech Stack
+---
 
+## Tech Stack
 
+![Python](https://img.shields.io/badge/Python-3.x-blue?logo=python&logoColor=white)
+![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-green?logo=opencv&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-Streaming-black?logo=apachekafka&logoColor=white)
+![TimescaleDB](https://img.shields.io/badge/TimescaleDB-Time%20Series-orange?logo=timescale&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-Dashboard-orange?logo=grafana&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
 
+---
 
+## Features
 
+- Video-based vehicle detection using **YOLO**
+- Persistent multi-object tracking using **ByteTrack**
+- Vehicle classification:
+  - Car
+  - Motorcycle
+  - Bus
+  - Truck
+- Video-frame to **GPX/GPS timestamp synchronization**
+- Camera latitude/longitude attached to traffic events
+- Real-time event streaming through **Apache Kafka**
+- Time-series event storage using **TimescaleDB**
+- **Grafana Geomap** visualization with:
+  - OpenStreetMap basemap
+  - GPS route layer
+  - Vehicle-event markers
+  - Vehicle-type marker coloring
+- JSONL event backup for replay and debugging
+- Optional license-plate detection and OCR
+- Local infrastructure managed with **Docker Compose**
 
+---
 
-
-✨ Features
-
-🎥 Video-based vehicle detection using YOLO
-
-🆔 Persistent multi-object tracking using ByteTrack
-
-🚗 Vehicle classification:
-
-Car
-
-Motorcycle
-
-Bus
-
-Truck
-
-📡 Video-frame to GPX/GPS timestamp synchronization
-
-🧭 Camera latitude/longitude attached to traffic events
-
-📨 Real-time event streaming through Apache Kafka
-
-💾 Time-series event storage using TimescaleDB
-
-🗺️ Grafana Geomap with:
-
-OpenStreetMap basemap
-
-GPS Route layer
-
-Vehicle-event markers
-
-Vehicle-type marker coloring
-
-📄 JSONL event backup for replay and debugging
-
-🔎 Optional license-plate detection and OCR
-
-🐳 Local infrastructure managed with Docker Compose
-
-📸 Dashboard Preview
+## Dashboard Preview
 
 The Grafana dashboard visualizes the camera trajectory and traffic events geographically.
 
-Add your final Grafana dashboard screenshot here
-
-Suggested file:
-docs/images/grafana-dashboard.png
-
 ![Grafana Traffic Monitoring Dashboard](docs/images/grafana-dashboard.png)
 
-🏗️ Architecture
+> Add the screenshot at `docs/images/grafana-dashboard.png` before pushing if you want the preview to render on GitHub.
 
+---
+
+## Architecture
+
+```text
                          ┌──────────────────────┐
                          │    Traffic Video     │
                          │       / Camera       │
@@ -126,33 +114,30 @@ docs/images/grafana-dashboard.png
                                         │     Grafana     │
                                         │ Geomap + KPIs   │
                                         └─────────────────┘
+```
 
-🔄 End-to-End Data Flow
+---
 
-1. Video Processing
+## End-to-End Data Flow
 
-VideoRunner reads the input video frame-by-frame and passes each frame to TrafficPipeline.
+### 1. Video Processing
+
+`VideoRunner` reads the input video frame-by-frame and passes each frame to `TrafficPipeline`.
 
 For each frame, the pipeline:
 
-Calculates the frame timestamp.
+1. Calculates the frame timestamp.
+2. Synchronizes the frame with GPX telemetry.
+3. Retrieves the camera latitude/longitude.
+4. Runs YOLO vehicle detection.
+5. Tracks vehicles using ByteTrack.
+6. Updates vehicle state.
+7. Generates traffic events.
+8. Optionally performs license-plate enrichment.
 
-Synchronizes the frame with GPX telemetry.
+### 2. GPS / GPX Synchronization
 
-Retrieves the camera latitude/longitude.
-
-Runs YOLO vehicle detection.
-
-Tracks vehicles using ByteTrack.
-
-Updates vehicle state.
-
-Generates traffic events.
-
-Optionally performs license-plate enrichment.
-
-2. GPS / GPX Synchronization
-
+```text
 Video frame
      │
      ▼
@@ -166,50 +151,50 @@ GPX timestamp
      │
      ▼
 Camera latitude / longitude
+```
 
-The GPS position stored with an event represents the camera/recording device position at that event timestamp.
+The GPS position stored with an event represents the **camera/recording device position at that event timestamp**.
 
-Important: camera_gps is not an individual vehicle GPS location. The Geomap markers therefore represent traffic events observed while the camera was at that location.
+> **Important:** `camera_gps` is not an individual vehicle GPS location. The Geomap markers therefore represent traffic events observed while the camera was at that location.
 
-🚗 Vehicle Detection & Tracking
+---
+
+## Vehicle Detection and Tracking
 
 The computer-vision pipeline uses:
 
-Component
-
-Purpose
-
-YOLO
-
-Vehicle detection and classification
-
-ByteTrack
-
-Persistent object tracking
-
-Vehicle State Manager
-
-Maintains vehicle lifecycle state
+| Component | Purpose |
+|---|---|
+| YOLO | Vehicle detection and classification |
+| ByteTrack | Persistent object tracking |
+| Vehicle State Manager | Maintains vehicle lifecycle state |
 
 Supported vehicle categories currently observed:
 
+```text
 car
 motorcycle
 truck
 bus
+```
 
-Each tracked vehicle receives a persistent track_id, allowing the system to associate observations across frames.
+Each tracked vehicle receives a persistent `track_id`, allowing the system to associate observations across frames.
 
-📡 Traffic Events
+---
+
+## Traffic Events
 
 The pipeline produces vehicle lifecycle events such as:
 
+```text
 vehicle_detected
 vehicle_updated
 vehicle_exited
+```
 
 A representative event looks like:
 
+```json
 {
   "frame_number": 1234,
   "timestamp": "2026-09-01T08:27:30.621952+00:00",
@@ -224,17 +209,23 @@ A representative event looks like:
     "timestamp": "2026-09-01T08:27:30.621952+00:00"
   }
 }
+```
 
 License-plate fields are optional and depend on the enrichment result.
 
-📨 Apache Kafka
+---
 
-Traffic events are published to:
+## Apache Kafka
 
+Traffic events are published to the Kafka topic:
+
+```text
 traffic-events
+```
 
 Kafka provides the streaming boundary between the computer-vision pipeline and downstream consumers.
 
+```text
 TrafficPipeline
       │
       ▼
@@ -248,67 +239,37 @@ Kafka Consumer
       │
       ▼
 TimescaleDB
+```
 
-The local Kafka setup uses KRaft mode and does not require the older ZooKeeper architecture.
+The local Kafka setup uses **KRaft mode** and does not require the older ZooKeeper architecture.
 
 Kafka UI is available locally for inspecting topics, partitions, messages, and consumer activity.
 
-💾 TimescaleDB
+---
 
-Traffic events are stored in the traffic_events hypertable.
+## TimescaleDB
 
-Core fields include:
+Traffic events are stored in the `traffic_events` hypertable.
 
-Field
+### Core Fields
 
-Description
+| Field | Description |
+|---|---|
+| `id` | Event identifier |
+| `event_time` | Event timestamp |
+| `event_type` | Vehicle lifecycle event |
+| `track_id` | Persistent tracking ID |
+| `vehicle_type` | Car, motorcycle, bus, or truck |
+| `confidence` | Detection confidence |
+| `bbox` | Vehicle bounding box |
+| `camera_gps` | Camera GPS telemetry |
+| `license_plate` | Optional recognized plate |
+| `plate_confidence` | Optional plate confidence |
+| `raw_event` | Original event payload |
 
-id
+### Example Query
 
-Event identifier
-
-event_time
-
-Event timestamp
-
-event_type
-
-Vehicle lifecycle event
-
-track_id
-
-Persistent tracking ID
-
-vehicle_type
-
-Car, motorcycle, bus, or truck
-
-confidence
-
-Detection confidence
-
-bbox
-
-Vehicle bounding box
-
-camera_gps
-
-Camera GPS telemetry
-
-license_plate
-
-Optional recognized plate
-
-plate_confidence
-
-Optional plate confidence
-
-raw_event
-
-Original event payload
-
-Example aggregation:
-
+```sql
 SELECT
     vehicle_type,
     COUNT(*) AS count
@@ -316,20 +277,28 @@ FROM traffic_events
 WHERE vehicle_type IS NOT NULL
 GROUP BY vehicle_type
 ORDER BY count DESC;
+```
 
-Current dataset example:
+Example dataset distribution:
 
+```text
 car          893
 motorcycle   543
 truck        312
 bus           94
+```
 
-🗺️ Grafana Dashboard
+> Counts represent traffic-event records and should not automatically be interpreted as unique vehicles.
+
+---
+
+## Grafana Dashboard
 
 The project includes a Grafana dashboard connected to TimescaleDB.
 
-Geomap
+### Geomap
 
+```text
 OpenStreetMap
       │
       ├── Route Layer
@@ -337,37 +306,41 @@ OpenStreetMap
       │
       └── Marker Layer
              └── Traffic events
+```
 
-Vehicle markers are color-coded by vehicle_type:
+Vehicle markers are color-coded by `vehicle_type`:
 
-🔵 Motorcycle
-🟢 Car
-🟠 Bus
-🔴 Truck
+| Vehicle Type | Marker |
+|---|---|
+| Motorcycle | Blue |
+| Car | Green |
+| Bus | Orange |
+| Truck | Red |
 
-The marker layer can expose fields such as:
+The marker tooltip can expose:
 
+```text
 vehicle_type
 track_id
 event_type
 confidence
 license_plate
 event_time
+```
 
 The dashboard can also include:
 
-Total traffic events
+- Total traffic events
+- Vehicle counts by type
+- Traffic events over time
+- Vehicle distribution
+- Camera route and traffic-event locations
 
-Vehicle counts by type
+---
 
-Traffic events over time
+## Project Structure
 
-Vehicle distribution
-
-Camera route and traffic-event locations
-
-📁 Project Structure
-
+```text
 Real-Time-Traffic-Monitoring/
 │
 ├── cv_pipeline/
@@ -418,125 +391,170 @@ Real-Time-Traffic-Monitoring/
 ├── requirements.txt
 ├── .gitignore
 └── README.md
+```
 
-🚀 Getting Started
+---
 
-Prerequisites
+## Getting Started
 
-Docker Desktop
+### Prerequisites
 
-Python 3.x
-
-Git
+- Docker Desktop
+- Python 3.x
+- Git
 
 Make sure Docker Desktop is running before starting the infrastructure.
 
-1. Clone the Repository
+### 1. Clone the Repository
 
+```bash
 git clone <YOUR_REPOSITORY_URL>
 cd Real-Time-Traffic-Monitoring
+```
 
-2. Start Infrastructure
+### 2. Start Infrastructure
 
+```bash
 docker compose up -d
+```
 
 Verify the containers:
 
+```bash
 docker ps
+```
 
 Expected services:
 
+```text
 kafka-local
 kafka-ui-local
 timescaledb-local
 grafana-local
+```
 
-3. Create a Python Virtual Environment
+### 3. Create a Python Virtual Environment
 
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
 
 Install dependencies:
 
+```bash
 pip install -r requirements.txt
+```
 
-▶️ Run the Traffic Pipeline
+---
+
+## Run the Traffic Pipeline
 
 Current example input:
 
+```text
 data/raw/city/traffic_1.mp4
+```
 
 GPS telemetry:
 
+```text
 data/raw/gps/traffic_1.gpx
+```
 
 Run:
 
+```bash
 python producers/run_traffic_video.py
+```
 
 The pipeline produces:
 
+```text
 outputs/videos/traffic_1_output.mp4
 data/processed/traffic_1/events.jsonl
 data/processed/traffic_1/summary.json
+```
 
 At the same time, traffic events are published to:
 
+```text
 traffic-events
+```
 
-🔎 Inspect Kafka
+---
 
-Kafka UI:
+## Inspect Kafka
 
+### Kafka UI
+
+```text
 http://localhost:8080
+```
 
-Kafka broker:
+### Kafka Broker
 
+```text
 localhost:9092
+```
 
 Use Kafka UI to inspect:
 
-Topics
+- Topics
+- Partitions
+- Messages
+- Consumer activity
 
-Partitions
+---
 
-Messages
+## Access Grafana
 
-Consumer activity
+### Grafana
 
-📊 Access Grafana
-
-Grafana:
-
+```text
 http://localhost:3000
+```
 
-Local development credentials configured for the project:
+### Local Development Credentials
 
+```text
 Username: admin
 Password: admin
+```
 
-Change the default password before exposing Grafana outside a local development environment.
+> **Security:** Change the default password before exposing Grafana outside a local development environment.
 
-🗄️ TimescaleDB Connection
+---
 
-Local connection parameters:
+## TimescaleDB Connection
 
-Host:     localhost
-Port:     5432
-Database: traffic_db
-User:     traffic_user
-Password: traffic_password
+### Local Connection Parameters
 
-For the Grafana PostgreSQL datasource, use the Docker Compose service name:
+| Parameter | Value |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `traffic_db` |
+| User | `traffic_user` |
+| Password | `traffic_password` |
 
+### Grafana PostgreSQL Datasource
+
+When configuring the PostgreSQL datasource from Grafana, use:
+
+```text
 timescaledb:5432
+```
 
-because Grafana and TimescaleDB run on the same Docker Compose network.
+Grafana and TimescaleDB run on the same Docker Compose network, so the service name is used instead of `localhost`.
 
-🗺️ Geomap Query
+---
 
-The marker layer extracts camera coordinates from camera_gps:
+## Grafana Geomap Query
 
+The Geomap marker layer extracts camera coordinates from `camera_gps`.
+
+```sql
 SELECT
     event_time AS "time",
     (camera_gps->>'latitude')::double precision AS latitude,
@@ -553,22 +571,32 @@ WHERE
     AND camera_gps->>'longitude' IS NOT NULL
     AND $__timeFilter(event_time)
 ORDER BY event_time;
+```
 
-Geomap configuration:
+### Geomap Configuration
 
-Location Mode: Coords
-Latitude:      latitude
-Longitude:     longitude
+| Setting | Value |
+|---|---|
+| Location Mode | `Coords` |
+| Latitude | `latitude` |
+| Longitude | `longitude` |
 
-🧪 Verification
+---
 
-Check traffic-event count
+## Verification
 
+Use the following queries to verify that the pipeline is producing and storing traffic data correctly.
+
+### Check Traffic-Event Count
+
+```sql
 SELECT COUNT(*)
 FROM traffic_events;
+```
 
-Check vehicle distribution
+### Check Vehicle Distribution
 
+```sql
 SELECT
     vehicle_type,
     COUNT(*) AS count
@@ -576,9 +604,11 @@ FROM traffic_events
 WHERE vehicle_type IS NOT NULL
 GROUP BY vehicle_type
 ORDER BY count DESC;
+```
 
-Check GPS availability
+### Check GPS Availability
 
+```sql
 SELECT
     event_time,
     event_type,
@@ -588,20 +618,26 @@ FROM traffic_events
 WHERE camera_gps IS NOT NULL
 ORDER BY event_time DESC
 LIMIT 20;
+```
 
-Check event types
+### Check Event Types
 
+```sql
 SELECT
     event_type,
     COUNT(*) AS count
 FROM traffic_events
 GROUP BY event_type
 ORDER BY count DESC;
+```
 
-🔎 License Plate Detection & OCR
+---
 
-License-plate processing is implemented as an optional enrichment pipeline:
+## License Plate Detection and OCR
 
+License-plate processing is implemented as an **optional enrichment pipeline**.
+
+```text
 Vehicle
    │
    ▼
@@ -621,11 +657,13 @@ Plate Aggregator
    │
    ▼
 Traffic Event
+```
 
 OCR is intentionally not required for the core traffic-monitoring pipeline.
 
-The primary system path is:
+### Primary System Path
 
+```text
 Video
   ↓
 Detection
@@ -639,13 +677,17 @@ Kafka
 TimescaleDB
   ↓
 Grafana
+```
 
 Plate recognition can be improved independently without changing the core streaming architecture.
 
-📈 Example Analytics
+---
 
-Events per minute
+## Example Analytics
 
+### Events per Minute
+
+```sql
 SELECT
     time_bucket('1 minute', event_time) AS time,
     COUNT(*) AS traffic_events
@@ -653,9 +695,11 @@ FROM traffic_events
 WHERE $__timeFilter(event_time)
 GROUP BY time
 ORDER BY time;
+```
 
-Vehicle distribution
+### Vehicle Distribution
 
+```sql
 SELECT
     vehicle_type,
     COUNT(*) AS vehicle_count
@@ -665,233 +709,134 @@ WHERE
     AND $__timeFilter(event_time)
 GROUP BY vehicle_type
 ORDER BY vehicle_count DESC;
+```
 
-🛠️ Technology Stack
+---
 
-Component
+## Technology Stack
 
-Technology
+| Component | Technology |
+|---|---|
+| Language | Python |
+| Computer Vision | OpenCV |
+| Object Detection | YOLO |
+| Object Tracking | ByteTrack |
+| Streaming | Apache Kafka |
+| Kafka Client | Confluent Kafka |
+| Database | PostgreSQL + TimescaleDB |
+| GPS | GPX telemetry |
+| Visualization | Grafana |
+| Map | OpenStreetMap |
+| Infrastructure | Docker / Docker Compose |
+| Event Backup | JSONL |
 
-Language
+---
 
-Python
-
-Computer Vision
-
-OpenCV
-
-Object Detection
-
-YOLO
-
-Object Tracking
-
-ByteTrack
-
-Streaming
-
-Apache Kafka
-
-Kafka Client
-
-Confluent Kafka
-
-Database
-
-PostgreSQL + TimescaleDB
-
-GPS
-
-GPX telemetry
-
-Visualization
-
-Grafana
-
-Map
-
-OpenStreetMap
-
-Infrastructure
-
-Docker / Docker Compose
-
-Event Backup
-
-JSONL
-
-🎯 Engineering Goals
+## Engineering Goals
 
 This project demonstrates an end-to-end engineering workflow rather than only an object-detection model.
 
-Process traffic video with computer vision.
-
-Maintain vehicle identities across frames.
-
-Generate structured vehicle lifecycle events.
-
-Synchronize events with camera GPS telemetry.
-
-Stream events through Apache Kafka.
-
-Persist events in a time-series database.
-
-Query and aggregate traffic data.
-
-Visualize traffic activity geographically and temporally.
-
-Keep optional ML enrichment components decoupled from the core streaming pipeline.
-
-🔮 Roadmap
-
-Real-time camera streams instead of prerecorded video
-
-Multiple camera sources
-
-Kafka partitioning by camera ID
-
-Vehicle speed estimation
-
-Traffic-density estimation
-
-Congestion detection
-
-Lane-level analytics
-
-Direction-of-travel analysis
-
-Vehicle dwell-time analytics
-
-Improved license-plate OCR
-
-Grafana alerting
-
-Dashboard auto-refresh
-
-Production Kafka deployment
-
-Containerized CV workers
-
-Cloud deployment
-
-Historical traffic analytics
-
-📌 Project Status
-
-Component
-
-Status
-
-YOLO vehicle detection
-
-✅ Working
-
-ByteTrack tracking
-
-✅ Working
-
-Vehicle lifecycle events
-
-✅ Working
-
-GPX/video synchronization
-
-✅ Working
-
-Camera GPS in events
-
-✅ Working
-
-Kafka producer
-
-✅ Working
-
-traffic-events topic
-
-✅ Working
-
-Kafka consumer
-
-✅ Working
-
-TimescaleDB
-
-✅ Working
-
-Traffic event persistence
-
-✅ Working
-
-Grafana PostgreSQL datasource
-
-✅ Working
-
-Grafana Geomap
-
-✅ Working
-
-OpenStreetMap basemap
-
-✅ Working
-
-GPS Route layer
-
-✅ Working
-
-Vehicle-colored markers
-
-✅ Working
-
-Marker tooltip
-
-🔧 Dashboard configuration
-
-KPI dashboard
-
-🔧 In progress
-
-Advanced OCR
-
-🔮 Future improvement
-
-🤝 Development
+- Process traffic video with computer vision.
+- Maintain vehicle identities across frames.
+- Generate structured vehicle lifecycle events.
+- Synchronize events with camera GPS telemetry.
+- Stream events through Apache Kafka.
+- Persist events in a time-series database.
+- Query and aggregate traffic data.
+- Visualize traffic activity geographically and temporally.
+- Keep optional ML enrichment components decoupled from the core streaming pipeline.
+
+---
+
+## Roadmap
+
+- [ ] Real-time camera streams instead of prerecorded video
+- [ ] Multiple camera sources
+- [ ] Kafka partitioning by camera ID
+- [ ] Vehicle speed estimation
+- [ ] Traffic-density estimation
+- [ ] Congestion detection
+- [ ] Lane-level analytics
+- [ ] Direction-of-travel analysis
+- [ ] Vehicle dwell-time analytics
+- [ ] Improved license-plate OCR
+- [ ] Grafana alerting
+- [ ] Dashboard auto-refresh
+- [ ] Production Kafka deployment
+- [ ] Containerized CV workers
+- [ ] Cloud deployment
+- [ ] Historical traffic analytics
+
+---
+
+## Project Status
+
+| Component | Status |
+|---|---|
+| YOLO vehicle detection | Working |
+| ByteTrack tracking | Working |
+| Vehicle lifecycle events | Working |
+| GPX/video synchronization | Working |
+| Camera GPS in events | Working |
+| Kafka producer | Working |
+| `traffic-events` topic | Working |
+| Kafka consumer | Working |
+| TimescaleDB | Working |
+| Traffic event persistence | Working |
+| Grafana PostgreSQL datasource | Working |
+| Grafana Geomap | Working |
+| OpenStreetMap basemap | Working |
+| GPS Route layer | Working |
+| Vehicle-colored markers | Working |
+| Marker tooltip | Dashboard configuration |
+| KPI dashboard | In progress |
+| Advanced OCR | Future improvement |
+
+---
+
+## Development
 
 For collaborative development:
 
+```bash
 git checkout -b feature/your-feature
+```
 
 Make your changes, commit them, and open a Pull Request.
 
-Avoid pushing experimental changes directly to main or master.
+Avoid pushing experimental changes directly to `main` or `master`.
 
 Large binary assets such as:
 
+```text
 *.mp4
 *.pt
 *.onnx
+```
 
-should generally remain outside Git and be managed through the project's .gitignore and appropriate data/model storage.
+should generally remain outside Git and be managed through `.gitignore` and appropriate data/model storage.
 
-🔐 Security Notes
+---
 
-The credentials in this README are intended for local development only.
+## Security Notes
+
+The credentials in this README are intended for **local development only**.
 
 Before deploying outside a local environment:
 
-Change Grafana's default password.
+- Change Grafana's default password.
+- Use environment variables or secrets for database credentials.
+- Do not commit credentials to Git.
+- Do not commit large or private video/model assets unless intentionally required.
+- Review `.gitignore` before the first push.
 
-Use environment variables or secrets for database credentials.
+---
 
-Do not commit credentials to Git.
-
-Do not commit large/private video or model assets unless intentionally required.
-
-Review .gitignore before the first push.
-
-👤 Project Focus
+## Project Focus
 
 The project is intentionally structured around a complete:
 
+```text
 Computer Vision
       ↓
 Traffic Events
@@ -905,5 +850,6 @@ TimescaleDB
 Grafana
       ↓
 Geospatial + Time-Series Analytics
+```
 
 The architecture provides a foundation that can evolve from a local video-processing prototype into a multi-camera real-time traffic analytics platform.
