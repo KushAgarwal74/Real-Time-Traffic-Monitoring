@@ -61,7 +61,9 @@ services:
 
   timescaledb:
 
-    image: timescale/timescaledb:latest-pg16
+    build:
+      context: ./database
+      dockerfile: Dockerfile
     container_name: timescaledb-local
     ports:
       - "5432:5432"
@@ -73,7 +75,6 @@ services:
 
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
 
   grafana:

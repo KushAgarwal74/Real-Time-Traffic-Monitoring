@@ -11,93 +11,65 @@ The system detects and tracks vehicles from traffic video streams, detects licen
 # 🏗️ System Architecture
 
 ```text
-                    ┌─────────────────────┐
-                    │   Traffic Video     │
-                    │    / Camera Feed    │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Video Runner      │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │  Traffic Pipeline   │
-                    └──────────┬──────────┘
-                               │
-            ┌──────────────────┼──────────────────┐
-            │                  │                  │
-            ▼                  ▼                  ▼
-     Vehicle Detection     Tracking        License Plate
-        + Tracking                         Detection + OCR
-            │                  │                  │
-            └──────────────────┼──────────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Traffic Events    │
-                    │                     │
-                    │ vehicle_detected    │
-                    │ vehicle_updated     │
-                    │ vehicle_exited      │
-                    └──────────┬──────────┘
-                               │
-                 ┌─────────────┴─────────────┐
-                 │                           │
-                 ▼                           ▼
-        ┌─────────────────┐         ┌─────────────────┐
-        │   events.jsonl  │         │      Kafka      │
-        │  Backup / Replay│         │  traffic-events │
-        └─────────────────┘         └────────┬────────┘
-                                             │
-                                             ▼
-                                    ┌─────────────────┐
-                                    │ Kafka Consumer  │
-                                    └────────┬────────┘
-                                             │
-                                             ▼
-                                    ┌─────────────────┐
-                                    │   TimescaleDB   │
-                                    └────────┬────────┘
-                                             │
-                                             ▼
-                                    ┌─────────────────┐
-                                    │    Dashboard    │
-                                    │   (Planned)     │
-                                    └─────────────────┘
+MP4 video + GPX metadata
+          |
+          v
+producers/run_traffic_video.py
+          |
+          v
+cv_pipeline/traffic_pipeline.py
+          |
+          +--> Vehicle detection and tracking
+          +--> License-plate detection and OCR
+          +--> GPS/timestamp synchronization
+          |
+          v
+producers/video_runner.py
+          |
+          +--> Annotated MP4
+          +--> events.jsonl and summary.json
+          +--> Kafka topic: traffic-events
+                                      |
+                                      v
+                           consumers/traffic_consumer.py
+                                      |
+                                      v
+                           TimescaleDB: traffic_events
+                                      |
+                         +------------+------------+
+                         |                         |
+                    pgAdmin 4                 Grafana
+                                                   |
+                                      Dashboard configuration pending
+```
 
-A distributed, real-time data streaming pipeline that processes video frames using computer vision (YOLO) and orchestrates telemetry payloads using Apache Kafka stream processing topologies.
+The main application path is:
 
-  [ Video / Camera Stream ] 
-             │
-             ▼
- 1. PRODUCERS (mock_producer.py) 
-    - Runs your YOLO model on raw video frames.
-    - Detects counts (e.g., "cars: 12", "trucks: 2").
-    - Pushes this metadata (JSON) to Kafka.
-             │
-             ▼
-       [ Kafka Broker ] (via docker-compose.yml)
-             │
-             ▼
- 2. STREAMS APP (main.py)
-    - Consumes the raw vehicle counts.
-    - Aggregators calculate traffic density windows (e.g., "Average cars/min").
-    - Processors filter alerts (e.g., "If speed == 0 for 5 mins, flag traffic jam").
-             │
-             ▼
- 3. CONSUMERS (dashboard_sink.py)
-    - Reads the processed insights, windowed averages, or alerts.
-    - Saves them to a database or pushes them to a frontend UI map dashboard.
+```text
+MP4 + GPX -> CV pipeline -> Kafka -> TimescaleDB
+                  |
+                  +-> annotated video and local JSON files
+```
 
----
+The separate `streams_app/` example consumes mock vehicle-count messages from
+the `traffic-raw-data` topic. It is not an intermediate stage in the MP4
+processing path.
 
-## 🏗️ Core Architecture Blueprint
-1. **Producers (`producers/`):** Feeds live video camera arrays to a YOLO inference model to output text JSON frame metadata to a target event pipeline topic.
-2. **Cluster Infrastructure (`docker-compose.yml`):** Deploys isolated ZooKeeper coordination nodes, a central Apache Kafka broker cluster instance, and a Kafka-UI analytics tracking plane.
-3. **Streams Engine (`streams_app/`):** Ingests raw telemetry tracking arrays to calculate sliding time windows, lane counts, and bottleneck alerts.
-4. **Consumers (`consumers/`):** Acts as the final streaming database sink node to feed user charts or map dashboards.
+## Core Architecture Components
+
+1. **Video entry point (`producers/run_traffic_video.py`):** Uses the sample
+   MP4, matching GPX file, and license-plate model defaults.
+2. **Computer vision (`cv_pipeline/`):** Synchronizes GPS metadata, tracks
+   vehicles, detects plates, performs OCR, and emits vehicle lifecycle events.
+3. **Video runner (`producers/video_runner.py`):** Writes annotated video and
+   JSON backups, and publishes events to Kafka.
+4. **Kafka (`kafka/docker-compose.yml`):** Runs Apache Kafka in KRaft mode,
+   Kafka UI, TimescaleDB, and Grafana. Host clients use `localhost:9092`.
+5. **Database consumer (`consumers/traffic_consumer.py`):** Reads
+   `traffic-events` and inserts rows into the `traffic_events` hypertable.
+6. **Storage and visualization:** TimescaleDB stores events; pgAdmin 4 can
+   query them; Grafana is available but not automatically provisioned with a
+   datasource or dashboard.
 
 ---
 
@@ -150,20 +122,409 @@ During live communication testing, the pipeline passed continuous metadata excha
 
 ---
 
-## 🚀 Teammate Onboarding & Local Setup
+## 🚀 Local Application Testing
 
-### 1. Provision Cluster Components
-Ensure **Docker Desktop** is active on your host system, open your terminal at the project root directory, and type:
+Ensure **Docker Desktop** is running before starting the test.
+
+The video/GPS synchronization step requires the native FFmpeg tools. On macOS,
+install them with Homebrew if `ffprobe` is not already available:
+
 ```bash
-docker compose up -d
+brew install ffmpeg
+ffprobe -version
 ```
-*   **Web Dashboard UI Manager:** [http://localhost:8080](http://localhost:8080)
-*   **Kafka Cluster Bootstrap URL:** `localhost:9092`
 
-### 2. Configure Your Isolated Python Workspace
+The license-plate model files are stored with Git LFS. Install Git LFS and
+download the model weights before running the video pipeline:
+
 ```bash
-source .venv/bin/activate
+brew install git-lfs
+git lfs install
+git lfs pull --include="models/*.pt"
+```
+
+### 1. Start Kafka and TimescaleDB
+
+Run Docker Compose from the `kafka/` directory:
+
+```bash
+cd kafka
+docker compose up -d
+docker compose ps
+```
+
+The TimescaleDB service is built locally from `database/Dockerfile`. That
+Dockerfile copies `database/init.sql` into the image so database initialization
+does not depend on a host bind mount. This works consistently with Docker
+Desktop on macOS and Windows and avoids host file-sharing permission errors.
+
+The first startup may build the TimescaleDB image before the services start.
+
+Useful local endpoints:
+
+- Kafka: `localhost:9092`
+- Kafka UI: [http://localhost:8080](http://localhost:8080)
+- TimescaleDB: `localhost:5432`
+
+### 2. Activate the Python Environment
+
+Run the remaining commands from the repository root:
+
+```bash
+source .venv-1/bin/activate
+```
+
+### 3. Install Python Dependencies
+
+```bash
 pip install -r producers/requirements.txt
+pip install -r streams_app/requirements.txt
+pip install psycopg2-binary
+```
+
+### 4. Create the Kafka Topic
+
+The video producer and database consumer use the `traffic-events` topic:
+
+```bash
+docker exec kafka-local \
+   /opt/kafka/bin/kafka-topics.sh \
+   --create \
+   --if-not-exists \
+   --topic traffic-events \
+   --bootstrap-server localhost:9092 \
+   --partitions 1 \
+   --replication-factor 1
+```
+
+Verify the topic:
+
+```bash
+docker exec kafka-local \
+   /opt/kafka/bin/kafka-topics.sh \
+   --list \
+   --bootstrap-server localhost:9092
+```
+
+### 5. Confirm Video, GPS, and Model Files
+
+The current video runner expects these files:
+
+```bash
+ls -lh data/raw/city/traffic_1.mp4
+ls -lh data/raw/gps/traffic_1.gpx
+ls -lh models/license-plate-finetune-v1s.pt
+```
+
+### 6. Start the Database Consumer
+
+Open a separate terminal and run:
+
+```bash
+source .venv-1/bin/activate
+python consumers/traffic_consumer.py
+```
+
+Expected output:
+
+```text
+Connected to TimescaleDB
+Listening to Kafka topic: traffic-events
+```
+
+Keep this terminal running.
+
+### 7. Process the MP4 Video
+
+Open another terminal and run:
+
+```bash
+source .venv-1/bin/activate
+python -m producers.run_traffic_video
+```
+
+Generated files:
+
+```text
+outputs/videos/traffic_1_output.mp4
+data/processed/traffic_1/events.jsonl
+data/processed/traffic_1/summary.json
+```
+
+### 8. Verify Database Records
+
+Run these commands from any terminal:
+
+```bash
+docker exec timescaledb-local \
+   psql \
+   -U traffic_user \
+   -d traffic_db \
+   -c "SELECT COUNT(*) FROM traffic_events;"
+```
+
+View recent events:
+
+```bash
+docker exec timescaledb-local \
+   psql \
+   -U traffic_user \
+   -d traffic_db \
+   -c "SELECT event_time, event_type, track_id, vehicle_type FROM traffic_events ORDER BY event_time DESC LIMIT 10;"
+```
+
+### 9. Inspect Data in pgAdmin 4
+
+Create a PostgreSQL server connection in pgAdmin 4 with these settings:
+
+```text
+Host: localhost
+Port: 5432
+Database: traffic_db
+Username: traffic_user
+Password: traffic_password
+SSL mode: Disable
+```
+
+Open **Tools -> Query Tool** for the `traffic_db` database and run the following queries.
+
+Check available tables:
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public';
+```
+
+Count stored events:
+
+```sql
+SELECT COUNT(*) AS total_events
+FROM traffic_events;
+```
+
+View recent events:
+
+```sql
+SELECT
+   event_time,
+   event_type,
+   track_id,
+   vehicle_type,
+   confidence,
+   license_plate
+FROM traffic_events
+ORDER BY event_time DESC
+LIMIT 20;
+```
+
+Group events by type:
+
+```sql
+SELECT
+   event_type,
+   COUNT(*) AS event_count
+FROM traffic_events
+GROUP BY event_type
+ORDER BY event_count DESC;
+```
+
+Group vehicles by type:
+
+```sql
+SELECT
+   vehicle_type,
+   COUNT(*) AS vehicle_count
+FROM traffic_events
+GROUP BY vehicle_type
+ORDER BY vehicle_count DESC;
+```
+
+View events per minute:
+
+```sql
+SELECT
+   date_trunc('minute', event_time) AS minute,
+   COUNT(*) AS event_count
+FROM traffic_events
+GROUP BY minute
+ORDER BY minute DESC;
+```
+
+Count events from the last hour:
+
+```sql
+SELECT COUNT(*) AS events_last_hour
+FROM traffic_events
+WHERE event_time >= NOW() - INTERVAL '1 hour';
+```
+
+Inspect the complete raw event payload:
+
+```sql
+SELECT
+   event_time,
+   event_type,
+   raw_event
+FROM traffic_events
+ORDER BY event_time DESC
+LIMIT 10;
+```
+
+Check TimescaleDB hypertables:
+
+```sql
+SELECT *
+FROM timescaledb_information.hypertables;
+```
+
+## Windows Application Testing
+
+The following commands assume **PowerShell**, Docker Desktop, and Git are installed.
+Run the commands from the repository root unless a `cd kafka` command is shown.
+
+### 1. Install System Prerequisites
+
+Install FFmpeg and Git LFS using either `winget` or Chocolatey.
+
+Using `winget`:
+
+```powershell
+winget install Gyan.FFmpeg.Shared
+winget install GitHub.GitLFS
+```
+
+Or using Chocolatey:
+
+```powershell
+choco install ffmpeg git-lfs -y
+```
+
+Restart PowerShell, then verify the tools:
+
+```powershell
+ffprobe -version
+git lfs version
+git lfs install
+```
+
+Download the license-plate model weights:
+
+```powershell
+git lfs pull --include="models/*.pt"
+```
+
+### 2. Start Kafka and TimescaleDB
+
+```powershell
+Set-Location kafka
+docker compose up -d
+docker compose ps
+Set-Location ..
+```
+
+Useful local endpoints:
+
+- Kafka: `localhost:9092`
+- Kafka UI: [http://localhost:8080](http://localhost:8080)
+- TimescaleDB: `localhost:5432`
+
+### 3. Create and Activate the Python Environment
+
+Create the environment if it does not already exist:
+
+```powershell
+py -3.13 -m venv .venv-1
+```
+
+Activate it:
+
+```powershell
+.\.venv-1\Scripts\Activate.ps1
+```
+
+If PowerShell blocks script activation, run PowerShell as your user and retry:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+### 4. Install Python Dependencies
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r producers\requirements.txt
+python -m pip install -r streams_app\requirements.txt
+python -m pip install psycopg2-binary
+```
+
+### 5. Create the Kafka Topic
+
+```powershell
+docker exec kafka-local /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --topic traffic-events --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+```
+
+Verify it:
+
+```powershell
+docker exec kafka-local /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+```
+
+The output should include `traffic-events`.
+
+### 6. Confirm Input Files
+
+```powershell
+Get-Item data\raw\city\traffic_1.mp4
+Get-Item data\raw\gps\traffic_1.gpx
+Get-Item models\license-plate-finetune-v1s.pt
+```
+
+### 7. Start the Database Consumer
+
+Open a second PowerShell window in the repository root:
+
+```powershell
+.\.venv-1\Scripts\Activate.ps1
+python consumers\traffic_consumer.py
+```
+
+Expected output:
+
+```text
+Connected to TimescaleDB
+Listening to Kafka topic: traffic-events
+```
+
+Keep this window running.
+
+### 8. Process the MP4 Video
+
+Open a third PowerShell window in the repository root:
+
+```powershell
+.\.venv-1\Scripts\Activate.ps1
+python -m producers.run_traffic_video
+```
+
+Generated files:
+
+```text
+outputs\videos\traffic_1_output.mp4
+data\processed\traffic_1\events.jsonl
+data\processed\traffic_1\summary.json
+```
+
+### 9. Verify TimescaleDB Records
+
+```powershell
+docker exec timescaledb-local psql -U traffic_user -d traffic_db -c "SELECT COUNT(*) FROM traffic_events;"
+```
+
+View recent events:
+
+```powershell
+docker exec timescaledb-local psql -U traffic_user -d traffic_db -c "SELECT event_time, event_type, track_id, vehicle_type FROM traffic_events ORDER BY event_time DESC LIMIT 10;"
 ```
 
 ---
@@ -175,4 +536,4 @@ pip install -r producers/requirements.txt
 ### Project Folders Ownership Matrix
 *   **Teammates 1 & 2 (Computer Vision):** Manage `producers/` configurations to run live YOLO classification routines inside `mock_producer.py`.
 *   **Teammates 3 & 4 (Analytics Framework):** Code windowed stream aggregation scripts in `streams_app/processors.py` and `aggregators.py`.
-*   **Teammate 5 (Storage Core):** Connect `consumers/dashboard_sink.py` to target data collection engines or live dashboard platforms.
+*   **Teammate 5 (Storage Core):** Maintain `consumers/traffic_consumer.py` and connect stored TimescaleDB data to dashboard platforms.
