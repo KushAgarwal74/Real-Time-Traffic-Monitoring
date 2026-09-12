@@ -40,7 +40,7 @@ producers/video_runner.py
                          |                         |
                     pgAdmin 4                 Grafana
                                                    |
-                                      Dashboard configuration pending
+                                      Dashboard configuration
 ```
 
 The main application path is:
@@ -296,12 +296,16 @@ FROM information_schema.tables
 WHERE table_schema = 'public';
 ```
 
+<img src="DB_Screenshots/Screenshot%202026-09-12%20at%2010.45.41%E2%80%AFAM.png" alt="Available tables query result" width="700"/>
+
 Count stored events:
 
 ```sql
 SELECT COUNT(*) AS total_events
 FROM traffic_events;
 ```
+<img src="DB_Screenshots/Screenshot%202026-09-12%20at%2011.11.34%E2%80%AFAM.png" alt="Available tables - 11.11.34 AM" width="700"/>
+
 
 View recent events:
 
@@ -317,6 +321,7 @@ FROM traffic_events
 ORDER BY event_time DESC
 LIMIT 20;
 ```
+<img src="DB_Screenshots/Screenshot%202026-09-12%20at%2011.12.18%E2%80%AFAM.png" alt="Available tables - 11.12.18 AM" width="700"/>
 
 Group events by type:
 
@@ -328,6 +333,7 @@ FROM traffic_events
 GROUP BY event_type
 ORDER BY event_count DESC;
 ```
+<img src="DB_Screenshots/Screenshot%202026-09-12%20at%2011.12.53%E2%80%AFAM.png" alt="Available tables - 11.12.53 AM" width="700"/>
 
 Group vehicles by type:
 
@@ -339,6 +345,8 @@ FROM traffic_events
 GROUP BY vehicle_type
 ORDER BY vehicle_count DESC;
 ```
+<img src="DB_Screenshots/Screenshot%202026-09-12%20at%2011.13.21%E2%80%AFAM.png" alt="Available tables - 11.13.21 AM" width="700"/>
+
 
 View events per minute:
 
@@ -350,6 +358,7 @@ FROM traffic_events
 GROUP BY minute
 ORDER BY minute DESC;
 ```
+<img src="DB_Screenshots/Screenshot%202026-09-12%20at%2011.14.09%E2%80%AFAM.png" alt="Available tables - 11.14.09 AM" width="700"/>
 
 Count events from the last hour:
 
@@ -377,6 +386,7 @@ Check TimescaleDB hypertables:
 SELECT *
 FROM timescaledb_information.hypertables;
 ```
+<img src="DB_Screenshots/Screenshot%202026-09-12%20at%2011.15.39%E2%80%AFAM.png" alt="Available tables - 11.15.39 AM" width="700"/>
 
 ## Windows Application Testing
 
