@@ -90,6 +90,74 @@ processing path.
 - Verify after start: http://localhost:3000 → Configuration → Data sources; Alerting → Alert rules; Dashboards → Real-Time Traffic & License Plate Monitoring
 
 
+### Step-by-step: Create, export, and reprovision the "Vehicle count above 100" alert
+1) Create rule (UI)
+• Grafana → Alerting → Alert rules → New rule.
+• Title: Vehicle count above 100.
+
+2) Query A (data)
+• Datasource: timescaledb-local
+• Switch to Code/SQL editor.
+• Paste raw SQL:
+
+```sql
+SELECT COUNT(DISTINCT track_id) AS vehicle_count
+FROM traffic_events
+WHERE event_time >= NOW() - INTERVAL '5 minutes'
+  AND event_time < NOW();
+```
+• Format/Result type: Table (or keep default).
+
+3) Expression (reduce)
+• Add expression → Reduce
+• Input: A
+• Function: Last
+• Mode: Strict (default)
+• Click “Set B as alert condition”.
+
+4) Condition (threshold)
+• Add expression → Threshold (or use Conditions panel)
+• Input: B
+• Condition: IS ABOVE 100
+• Pending period (For): 1m
+• Save rule (choose/create folder “Traffic Analytics”).
+
+5) Test & save
+• Use Preview / Run query to confirm the alert fires when expected.
+• Save the rule.
+
+6) Export the rule YAML
+• Open the saved rule → ••• (menu) → Export → YAML (download or copy).
+• Save file as vehicle-count-above-100-export.yaml.
+
+7) Add to repo provisioning
+• Place that exported YAML into repo: kafka/provisioning/alerting/rules/vehicle-count-above-100.yaml
+• Ensure the filename extension is .yaml and the file content is exactly the exported YAML.
+
+8) Rebuild Grafana image (bakes provisioning)
+From repo/kafka:
+
+```bash
+docker-compose -f kafka/docker-compose.yml up -d --build grafana
+```
+
+9) Verify provisioning
+• Tail logs:
+
+```bash
+docker-compose -f kafka/docker-compose.yml logs --tail=200 -f grafana
+```
+
+Look for provisioning.alerting messages and no errors.
+• Check API:
+
+```bash
+curl -s -u admin:admin "http://localhost:3000/apis/rules.alerting.grafana.app/v0alpha1/namespaces/default/alertrules" | jq .
+```
+
+Evaluation config suggestions:
+• Group name: Traffic-Analytics (or Default)
+• Evaluation interval: 1m (matches the rule’s 1m “for” and 5-minute query window)
 
 ---
 
