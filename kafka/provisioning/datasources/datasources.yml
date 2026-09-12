@@ -1,0 +1,13 @@
+apiVersion: 1
+datasources:
+  - name: ffxil96eoicjkd
+    uid: ffxil96eoicjkd
+    type: postgres
+    access: proxy
+    url: timescaledb:5432
+    database: traffic_db
+    user: traffic_user
+    secureJsonData:
+      password: traffic_password
+    jsonData:
+      sslmode: disable

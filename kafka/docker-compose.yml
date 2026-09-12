@@ -89,6 +89,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./provisioning/alerting/rules:/etc/grafana/provisioning/alerting/rules
 
 volumes:
   timescaledb_data:
