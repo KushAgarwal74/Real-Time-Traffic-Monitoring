@@ -1,27 +1,34 @@
 apiVersion: 1
 groups:
     - orgId: 1
-      name: Default
+      name: Traffic‑Analytics
       folder: Traffic Analytics
       interval: 1m
       rules:
-        - uid: efxpwvxl60gzka
+        - uid: afy0tpoc77if4d
           title: Vehicle count above 100
-          condition: C
+          condition: B
           data:
             - refId: A
               relativeTimeRange:
                 from: 600
                 to: 0
-              datasourceUid: ffxil96eoicjkd
+              datasourceUid: ffy0ik8xil7nkb
               model:
                 dataset: traffic_db
+                datasource:
+                    type: grafana-postgresql-datasource
+                    uid: ffy0ik8xil7nkb
                 editorMode: code
                 format: table
                 intervalMs: 1000
                 maxDataPoints: 43200
                 rawQuery: true
-                rawSql: "SELECT COUNT(DISTINCT track_id) AS vehicle_count\r\nFROM traffic_events\r\nWHERE event_time >= TIMESTAMPTZ '2026-09-01 08:25:00+00'\r\n  AND event_time < TIMESTAMPTZ '2026-09-01 08:30:00+00';"
+                rawSql: |-
+                    SELECT COUNT(DISTINCT track_id) AS vehicle_count
+                    FROM traffic_events
+                    WHERE event_time >= TIMESTAMPTZ '2026-09-01 08:25:00+00'
+                      AND event_time < TIMESTAMPTZ '2026-09-01 08:30:00+00';
                 refId: A
                 sql:
                     columns:
@@ -32,6 +39,7 @@ groups:
                             type: string
                           type: groupBy
                     limit: 50
+                table: traffic_events
             - refId: B
               queryType: expression
               datasourceUid: __expr__
@@ -88,4 +96,4 @@ groups:
           for: 1m
           isPaused: false
           notification_settings:
-            receiver: admin
+            receiver: empty

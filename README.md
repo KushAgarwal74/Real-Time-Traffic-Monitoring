@@ -71,6 +71,26 @@ processing path.
    query them; Grafana is available but not automatically provisioned with a
    datasource or dashboard.
 
+## Grafana provisioning & local execution (quick guide)
+- Provisioning files live under: kafka/provisioning/
+ - Datasources: kafka/provisioning/datasources/datasources.yml
+ - Alert rules: kafka/provisioning/alerting/rules/*.yaml (e.g. vehicle-count-above-100.yaml)
+
+- Run locally (recommended: baked image)
+ 1. Edit datasource values if needed: kafka/provisioning/datasources/datasources.yml (database/user/password/url).
+ 2. Build and start Grafana with baked provisioning so files are copied into the image:
+    cd kafka
+    docker-compose -f docker-compose.yml up -d --build grafana
+
+- Apply without rebuilding (temporary):
+    docker cp kafka/provisioning/alerting/rules/vehicle-count-above-100.yaml grafana-local:/etc/grafana/provisioning/alerting/rules/ && docker restart grafana-local
+
+- If you prefer an editable datasource in the UI for testing, create one in Grafana (name: timescaledb-local) or create via API. The dashboard JSON in the repo has been updated to reference "timescaledb-local" (uid ffy0ik8xil7nkb).
+
+- Verify after start: http://localhost:3000 → Configuration → Data sources; Alerting → Alert rules; Dashboards → Real-Time Traffic & License Plate Monitoring
+
+
+
 ---
 
 ## 📋 Initial Verification Logs & Test History

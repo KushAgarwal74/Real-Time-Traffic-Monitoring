@@ -91,7 +91,12 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
+      # Keep Grafana dashboards/settings/data
       - grafana_data:/var/lib/grafana
+
+      # Automatically load alert rules
+      - ./grafana/provisioning:/etc/grafana/provisioning
+
 
 volumes:
   timescaledb_data:
